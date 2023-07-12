@@ -86,6 +86,8 @@ private:
     const unsigned _currentVersion;
     const unsigned long _updateIntervalMs;
     unsigned long _lastUpdateMs;
+    String binURL;
+    String binMD5;
 };
 
 #endif // UPDATE_CHECKER

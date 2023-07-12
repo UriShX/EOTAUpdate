@@ -38,8 +38,6 @@ _eota_reponses_t EOTAUpdate::Check(bool force)
     log_i("Checking for updates");
 
     _lastUpdateMs = millis();
-    String binURL;
-    String binMD5;
     return GetUpdateFWURL(binURL, binMD5);
 }
 
@@ -67,7 +65,7 @@ _eota_reponses_t EOTAUpdate::GetUpdateFWURL(String &binURL, String &binMD5, cons
     if (retries == 0)
     {
         log_e("Too many retries/redirections");
-        eota_runaway false;
+        return eota_runaway;
     }
 
     bool isSSL = url.startsWith("https");
