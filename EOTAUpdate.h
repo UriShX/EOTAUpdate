@@ -34,6 +34,16 @@
  *  - As of now, self-signed certificates will not work over SSL
  *
  */
+
+typedef enum {
+    eota_ok,
+    eota_error,
+    eota_failed,
+    eota_no_match,
+    eota_runaway,
+    eota_size_error
+} _eota_reponses_t;
+
 class EOTAUpdate
 {
 private:
@@ -62,12 +72,13 @@ public:
      *                  successfull update.
      * @return false    Either no update was available or flashing failed
      */
-    bool CheckAndUpdate(bool force = false);
+    _eota_reponses_t Check(bool force = false);
+    _eota_reponses_t CheckAndUpdate(bool force = false);
 
 private:
-    bool GetUpdateFWURL(String &binURL, String &binMD5);
-    bool GetUpdateFWURL(String &binURL, String &binMD5, const String &url, const uint16_t retries = 5);
-    bool PerformOTA(String &binURL, String &binMD5);
+    _eota_reponses_t GetUpdateFWURL(String &binURL, String &binMD5);
+    _eota_reponses_t GetUpdateFWURL(String &binURL, String &binMD5, const String &url, const uint16_t retries = 5);
+    _eota_reponses_t PerformOTA(String &binURL, String &binMD5);
 
 private:
     String _url;
