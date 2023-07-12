@@ -26,7 +26,7 @@ _eota_reponses_t EOTAUpdate::Check(bool force)
     const bool lastCheckIsRecent = (millis() - _lastUpdateMs < _updateIntervalMs);
     if (!force && hasEverChecked && lastCheckIsRecent)
     {
-        return false;
+        return eota_no_match;
     }
 
     if (WiFi.status() != WL_CONNECTED)
