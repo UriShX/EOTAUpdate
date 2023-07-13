@@ -69,7 +69,7 @@ public:
      */
     EOTAUpdate(
         const String &url,
-        const String &currentVersionStr,
+        const std::string &currentVersionStr,
         const unsigned long updateIntervalMs    = UPDATE_INTERVAL_MS);
 
     /**
