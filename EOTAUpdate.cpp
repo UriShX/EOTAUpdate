@@ -4,6 +4,7 @@
 #include <Update.h>
 #include <WiFi.h>
 #include <WiFiClient.h>
+#include <regex>
 
 #include <EOTAUpdate.h>
 
@@ -37,7 +38,6 @@ EOTAUpdate::EOTAUpdate(
     _updateIntervalMs(updateIntervalMs),
     _lastUpdateMs(0)
 {
-    #include <regex>
     smatch _match;
     // if (regex_search(currentVersion, _match, regex("([0-9]+)[.]([0-9]+)[.]([0-9]+)([a-zA-Z])")))
     if (regex_search(currentVersion, _match, regex("(\d+).(\d+).(\d+)([a-zA-Z])")))
