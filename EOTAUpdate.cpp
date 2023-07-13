@@ -22,7 +22,7 @@ EOTAUpdate::EOTAUpdate(
 
 EOTAUpdate::EOTAUpdate(
     const String &url,
-    const String &currentVersion,
+    const String &currentVersionStr,
     const unsigned long updateIntervalMs)
     :
     _url(url),

@@ -42,7 +42,7 @@ typedef enum {
     eota_no_match,
     eota_runaway,
     eota_size_error
-} _eota_reponses_t;
+} eota_reponses_t;
 
 class EOTAUpdate
 {
@@ -60,6 +60,17 @@ public:
         const String &url,
         const unsigned currentVersion,
         const unsigned long updateIntervalMs    = UPDATE_INTERVAL_MS);
+    
+    /**
+     * @brief Create an EOTAUpdate instance
+     * @param url                   URL pointing to the OTA configuration text file
+     * @param currentVersion        Current running software version
+     * @param updateIntervalMs      Min amount of time to between update checks in Ms
+     */
+    EOTAUpdate(
+        const String &url,
+        const String &currentVersionStr,
+        const unsigned long updateIntervalMs    = UPDATE_INTERVAL_MS);
 
     /**
      * @brief Check for an update and, if available, fetch it and flash it.
@@ -72,22 +83,25 @@ public:
      *                  successfull update.
      * @return false    Either no update was available or flashing failed
      */
-    _eota_reponses_t Check(bool force = false);
-    _eota_reponses_t CheckAndUpdate(bool force = false);
+    eota_reponses_t Check(bool force = false);
+    eota_reponses_t CheckAndUpdate(bool force = false);
 
 private:
-    _eota_reponses_t GetUpdateFWURL(String &binURL, String &binMD5);
-    _eota_reponses_t GetUpdateFWURL(String &binURL, String &binMD5, const String &url, const uint16_t retries = 5);
-    _eota_reponses_t PerformOTA(String &binURL, String &binMD5);
+    eota_reponses_t GetUpdateFWURL(String &_binURL, String &_binMD5);
+    eota_reponses_t GetUpdateFWURL(String &_binURL, String &_binMD5, const String &url, const uint16_t retries = 5);
+    eota_reponses_t PerformOTA(String &_binURL, String &_binMD5);
 
 private:
     String _url;
     const bool _forceSSL;
     const unsigned _currentVersion;
+    const uint8_t _versionMinor;
+    const uint8_t _versionPatch;
+    const char _versionMark;
     const unsigned long _updateIntervalMs;
     unsigned long _lastUpdateMs;
-    String binURL;
-    String binMD5;
+    String _binURL;
+    String _binMD5;
 };
 
 #endif // UPDATE_CHECKER
