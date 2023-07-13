@@ -20,7 +20,26 @@ EOTAUpdate::EOTAUpdate(
 {
 }
 
-_eota_reponses_t EOTAUpdate::Check(bool force)
+EOTAUpdate::EOTAUpdate(
+    const String &url,
+    const String &currentVersion,
+    const unsigned long updateIntervalMs)
+    :
+    _url(url),
+    _forceSSL(url.startsWith("https://")),
+    _updateIntervalMs(updateIntervalMs),
+    _lastUpdateMs(0)
+{
+    #include <regex>
+    smatch _match;
+    // if (regex_search(currentVersion, _match, regex("([0-9]+)[.]([0-9]+)[.]([0-9]+)([a-zA-Z])")))
+    if (regex_search(currentVersion, _match, regex("(\d+).(\d+).(\d+)([a-zA-Z])")))
+        Serial.println(_match);
+    else
+        Serial.println("no match found!");
+}
+
+eota_reponses_t EOTAUpdate::Check(bool force)
 {
     const bool hasEverChecked = _lastUpdateMs != 0;
     const bool lastCheckIsRecent = (millis() - _lastUpdateMs < _updateIntervalMs);
@@ -38,27 +57,27 @@ _eota_reponses_t EOTAUpdate::Check(bool force)
     log_i("Checking for updates");
 
     _lastUpdateMs = millis();
-    return GetUpdateFWURL(binURL, binMD5);
+    return GetUpdateFWURL(_binURL, _binMD5);
 }
 
-_eota_reponses_t EOTAUpdate::CheckAndUpdate(bool force)
+eota_reponses_t EOTAUpdate::CheckAndUpdate(bool force)
 {
-    _eota_reponses_t response;
+    eota_reponses_t response;
     response = Check(force);
     if (response == eota_ok)
     {
         log_i("Update found. Performing update");
-        return PerformOTA(binURL, binMD5);
+        return PerformOTA(_binURL, _binMD5);
     }
     return response;
 }
 
-_eota_reponses_t EOTAUpdate::GetUpdateFWURL(String &binURL, String &binMD5)
+eota_reponses_t EOTAUpdate::GetUpdateFWURL(String &_binURL, String &_binMD5)
 {
-    return GetUpdateFWURL(binURL, binMD5, _url);
+    return GetUpdateFWURL(_binURL, _binMD5, _url);
 }
 
-_eota_reponses_t EOTAUpdate::GetUpdateFWURL(String &binURL, String &binMD5, const String &url, const uint16_t retries)
+eota_reponses_t EOTAUpdate::GetUpdateFWURL(String &_binURL, String &_binMD5, const String &url, const uint16_t retries)
 {
     log_d("Fetching OTA config from: %s", url.c_str());
 
@@ -94,7 +113,7 @@ _eota_reponses_t EOTAUpdate::GetUpdateFWURL(String &binURL, String &binMD5, cons
     case HTTP_CODE_MOVED_PERMANENTLY:
         if (httpClient.hasHeader("Location"))
         {
-            return GetUpdateFWURL(binURL, binMD5, httpClient.header("Location"), retries - 1);
+            return GetUpdateFWURL(_binURL, _binMD5, httpClient.header("Location"), retries - 1);
         }
         // Do not break here
     default:
@@ -107,13 +126,13 @@ _eota_reponses_t EOTAUpdate::GetUpdateFWURL(String &binURL, String &binMD5, cons
     }
 
     auto & payloadStream = httpClient.getStream();
-    binURL = payloadStream.readStringUntil('\n');
+    _binURL = payloadStream.readStringUntil('\n');
     const unsigned newVersionNumber = payloadStream.readStringUntil('\n').toInt();
-    binMD5 = payloadStream.readStringUntil('\n');
+    _binMD5 = payloadStream.readStringUntil('\n');
     const String newVersionString = payloadStream.readStringUntil('\n');
     httpClient.end();
 
-    if (binURL.length() == 0)
+    if (_binURL.length() == 0)
     {
         log_e("Error parsing remote path of new binary");
         return eota_error;
@@ -125,15 +144,15 @@ _eota_reponses_t EOTAUpdate::GetUpdateFWURL(String &binURL, String &binMD5, cons
         return eota_error;
     }
 
-    if (binMD5.length() > 0 && binMD5.length() != 32)
+    if (_binMD5.length() > 0 && _binMD5.length() != 32)
     {
         log_e("The MD5 is not 32 characters long. Aborting update");
         return eota_no_match;
     }
 
     log_d("Fetched update information:");
-    log_d("File url:           %s",       binURL.c_str());
-    log_d("File MD5:           %s",       binMD5.c_str());
+    log_d("File url:           %s",       _binURL.c_str());
+    log_d("File MD5:           %s",       _binMD5.c_str());
     log_d("Current version:    %u",       _currentVersion);
     log_d("Published version:  [%u] %s",  newVersionNumber, newVersionString.c_str());
     log_d("Update available:   %s",       (newVersionNumber > _currentVersion) ? "YES" : "NO");
@@ -141,16 +160,16 @@ _eota_reponses_t EOTAUpdate::GetUpdateFWURL(String &binURL, String &binMD5, cons
     return (newVersionNumber > _currentVersion) ? eota_ok : eota_no_match;
 }
 
-_eota_reponses_t EOTAUpdate::PerformOTA(String &binURL, String &binMD5)
+eota_reponses_t EOTAUpdate::PerformOTA(String &_binURL, String &_binMD5)
 {
-    log_d("Fetching OTA from: %s", binURL.c_str());
+    log_d("Fetching OTA from: %s", _binURL.c_str());
 
-    if (binURL.length() == 0)
+    if (_binURL.length() == 0)
     {
         return eota_error;
     }
 
-    bool isSSL = binURL.startsWith("https");
+    bool isSSL = _binURL.startsWith("https");
     if (_forceSSL && !isSSL)
     {
         log_e("Trying to access a non-ssl URL on a secure update checker");
@@ -164,7 +183,7 @@ _eota_reponses_t EOTAUpdate::PerformOTA(String &binURL, String &binMD5)
     }
 
     HTTPClient httpClient;
-    if (!httpClient.begin(binURL))
+    if (!httpClient.begin(_binURL))
     {
         log_e("Error initializing client");
         return eota_error;
@@ -184,8 +203,8 @@ _eota_reponses_t EOTAUpdate::PerformOTA(String &binURL, String &binMD5)
     const auto payloadSize = httpClient.getSize();
     auto & payloadStream = httpClient.getStream();
 
-    if (binMD5.length() > 0 &&
-        !Update.setMD5(binMD5.c_str()))
+    if (_binMD5.length() > 0 &&
+        !Update.setMD5(_binMD5.c_str()))
     {
             log_e("Failed to set the expected MD5");
             return eota_no_match;
