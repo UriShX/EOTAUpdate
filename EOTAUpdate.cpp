@@ -26,7 +26,7 @@ EOTAUpdate::EOTAUpdate(
 
 EOTAUpdate::EOTAUpdate(
     const String &url,
-    const String &currentVersionStr,
+    const std::string &currentVersionStr,
     const unsigned long updateIntervalMs)
     :
     _url(url),
