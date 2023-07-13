@@ -39,8 +39,8 @@ EOTAUpdate::EOTAUpdate(
     _lastUpdateMs(0)
 {
     std::smatch _match;
-    // if (regex_search(currentVersionStr, _match, regex("([0-9]+)[.]([0-9]+)[.]([0-9]+)([a-zA-Z])")))
-    if (std::regex_search(currentVersionStr, _match, regex("(\d+).(\d+).(\d+)([a-zA-Z])")))
+    if (std::regex_search(currentVersionStr, _match, std::regex("([0-9]+)[.]([0-9]+)[.]([0-9]+)([a-zA-Z])")))
+    // if (std::regex_search(currentVersionStr, _match, regex("(\d+).(\d+).(\d+)([a-zA-Z])")))
         Serial.println(_match);
     else
         Serial.println("no match found!");
