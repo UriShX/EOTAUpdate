@@ -15,6 +15,9 @@ EOTAUpdate::EOTAUpdate(
     _url(url),
     _forceSSL(url.startsWith("https://")),
     _currentVersion(currentVersion),
+    _versionMinor(0),
+    _versionPatch(0),
+    _versionMark('a'),
     _updateIntervalMs(updateIntervalMs),
     _lastUpdateMs(0)
 {
@@ -27,6 +30,10 @@ EOTAUpdate::EOTAUpdate(
     :
     _url(url),
     _forceSSL(url.startsWith("https://")),
+    _currentVersion(0),
+    _versionMinor(0),
+    _versionPatch(0),
+    _versionMark('a'),
     _updateIntervalMs(updateIntervalMs),
     _lastUpdateMs(0)
 {
