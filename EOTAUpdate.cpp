@@ -20,13 +20,38 @@ EOTAUpdate::EOTAUpdate(
 {
 }
 
-_eota_reponses_t EOTAUpdate::Check(bool force)
+EOTAUpdate::EOTAUpdate(
+    const String &url,
+    const String &currentVersionStr,
+    const unsigned long updateIntervalMs)
+    :
+    _url(url),
+    _forceSSL(url.startsWith("https://")),
+    _currentVersion(0),
+    _versionStr(currentVersionStr),
+    _updateIntervalMs(updateIntervalMs),
+    _lastUpdateMs(0)
+{
+    parseSemVer(currentVersionStr, &_currentVersionArr);
+}
+
+
+void EOTAUpdate::print_versions()
+{
+    if (_currentVersionArr[0] != 0 && _currentVersionArr[1] != 0 && _currentVersionArr[2] != 0 && _currentVersionArr[3] != 0)
+        Serial.printf("version passed to OTA lib: %u\r\n", _currentVersion);
+    else
+        Serial.printf("version passed to OTA lib - parsed: %u.%u.%u%c, string recieved: %s\r\n", _currentVersionArr[0], _currentVersionArr[1], _currentVersionArr[2], _currentVersionArr[3], _versionStr);
+
+}
+
+eota_reponses_t EOTAUpdate::Check(bool force)
 {
     const bool hasEverChecked = _lastUpdateMs != 0;
     const bool lastCheckIsRecent = (millis() - _lastUpdateMs < _updateIntervalMs);
     if (!force && hasEverChecked && lastCheckIsRecent)
     {
-        return false;
+        return eota_no_match;
     }
 
     if (WiFi.status() != WL_CONNECTED)
@@ -38,36 +63,34 @@ _eota_reponses_t EOTAUpdate::Check(bool force)
     log_i("Checking for updates");
 
     _lastUpdateMs = millis();
-    String binURL;
-    String binMD5;
-    return GetUpdateFWURL(binURL, binMD5);
+    return GetUpdateFWURL(_binURL, _binMD5);
 }
 
-_eota_reponses_t EOTAUpdate::CheckAndUpdate(bool force)
+eota_reponses_t EOTAUpdate::CheckAndUpdate(bool force)
 {
-    _eota_reponses_t response;
-    resopnse = Check(force);
+    eota_reponses_t response;
+    response = Check(force);
     if (response == eota_ok)
     {
         log_i("Update found. Performing update");
-        return PerformOTA(binURL, binMD5);
+        return PerformOTA(_binURL, _binMD5);
     }
     return response;
 }
 
-_eota_reponses_t EOTAUpdate::GetUpdateFWURL(String &binURL, String &binMD5)
+eota_reponses_t EOTAUpdate::GetUpdateFWURL(String &_binURL, String &_binMD5)
 {
-    return GetUpdateFWURL(binURL, binMD5, _url);
+    return GetUpdateFWURL(_binURL, _binMD5, _url);
 }
 
-_eota_reponses_t EOTAUpdate::GetUpdateFWURL(String &binURL, String &binMD5, const String &url, const uint16_t retries)
+eota_reponses_t EOTAUpdate::GetUpdateFWURL(String &_binURL, String &_binMD5, const String &url, const uint16_t retries)
 {
     log_d("Fetching OTA config from: %s", url.c_str());
 
     if (retries == 0)
     {
         log_e("Too many retries/redirections");
-        eota_runaway false;
+        return eota_runaway;
     }
 
     bool isSSL = url.startsWith("https");
@@ -96,7 +119,7 @@ _eota_reponses_t EOTAUpdate::GetUpdateFWURL(String &binURL, String &binMD5, cons
     case HTTP_CODE_MOVED_PERMANENTLY:
         if (httpClient.hasHeader("Location"))
         {
-            return GetUpdateFWURL(binURL, binMD5, httpClient.header("Location"), retries - 1);
+            return GetUpdateFWURL(_binURL, _binMD5, httpClient.header("Location"), retries - 1);
         }
         // Do not break here
     default:
@@ -108,14 +131,21 @@ _eota_reponses_t EOTAUpdate::GetUpdateFWURL(String &binURL, String &binMD5, cons
         return eota_failed;
     }
 
+    unsigned _newVersionNumber = 0;
+    uint8_t newVersionArr[4] = {0};
+
     auto & payloadStream = httpClient.getStream();
-    binURL = payloadStream.readStringUntil('\n');
-    const unsigned newVersionNumber = payloadStream.readStringUntil('\n').toInt();
-    binMD5 = payloadStream.readStringUntil('\n');
+    _binURL = payloadStream.readStringUntil('\n');
+    const String newVersionNumber = payloadStream.readStringUntil('\n');
+    if (_currentVersionArr[0] == 0 && _currentVersionArr[1] == 0 && _currentVersionArr[2] == 0 && _currentVersionArr[3] == 0)
+        _newVersionNumber = newVersionNumber.toInt();
+    else
+        parseSemVer(newVersionNumber, &newVersionArr);
+    _binMD5 = payloadStream.readStringUntil('\n');
     const String newVersionString = payloadStream.readStringUntil('\n');
     httpClient.end();
 
-    if (binURL.length() == 0)
+    if (_binURL.length() == 0)
     {
         log_e("Error parsing remote path of new binary");
         return eota_error;
@@ -127,32 +157,43 @@ _eota_reponses_t EOTAUpdate::GetUpdateFWURL(String &binURL, String &binMD5, cons
         return eota_error;
     }
 
-    if (binMD5.length() > 0 && binMD5.length() != 32)
+    if (_binMD5.length() > 0 && _binMD5.length() != 32)
     {
         log_e("The MD5 is not 32 characters long. Aborting update");
         return eota_no_match;
     }
 
+    bool updateAvailable = false;
+    if (_currentVersionArr[0] != 0 && _currentVersionArr[1] != 0 && _currentVersionArr[2] != 0 && _currentVersionArr[3] != 0)
+        updateAvailable = (_newVersionNumber > _currentVersion) ? true : false;
+    else
+        for (uint8_t i = 0; i < sizeof(_currentVersionArr); i++)
+            updateAvailable = (newVersionArr[i] > _currentVersionArr[i]) ? true : false; 
+        
     log_d("Fetched update information:");
-    log_d("File url:           %s",       binURL.c_str());
-    log_d("File MD5:           %s",       binMD5.c_str());
-    log_d("Current version:    %u",       _currentVersion);
+    log_d("File url:           %s",       _binURL.c_str());
+    log_d("File MD5:           %s",       _binMD5.c_str());
+    if (_currentVersionArr[0] != 0 && _currentVersionArr[1] != 0 && _currentVersionArr[2] != 0 && _currentVersionArr[3] != 0)
+        log_d("Current version:    %u",       _currentVersion);
+    else
+        log_d("Current version: %s", _versionStr);
+    log_d("Update available:   %s",       (updateAvailable) ? "YES" : "NO");
     log_d("Published version:  [%u] %s",  newVersionNumber, newVersionString.c_str());
-    log_d("Update available:   %s",       (newVersionNumber > _currentVersion) ? "YES" : "NO");
+
     
-    return (newVersionNumber > _currentVersion) ? eota_ok : eota_no_match;
+    return (updateAvailable) ? eota_ok : eota_no_match;
 }
 
-_eota_reponses_t EOTAUpdate::PerformOTA(String &binURL, String &binMD5)
+eota_reponses_t EOTAUpdate::PerformOTA(String &_binURL, String &_binMD5)
 {
-    log_d("Fetching OTA from: %s", binURL.c_str());
+    log_d("Fetching OTA from: %s", _binURL.c_str());
 
-    if (binURL.length() == 0)
+    if (_binURL.length() == 0)
     {
         return eota_error;
     }
 
-    bool isSSL = binURL.startsWith("https");
+    bool isSSL = _binURL.startsWith("https");
     if (_forceSSL && !isSSL)
     {
         log_e("Trying to access a non-ssl URL on a secure update checker");
@@ -166,7 +207,7 @@ _eota_reponses_t EOTAUpdate::PerformOTA(String &binURL, String &binMD5)
     }
 
     HTTPClient httpClient;
-    if (!httpClient.begin(binURL))
+    if (!httpClient.begin(_binURL))
     {
         log_e("Error initializing client");
         return eota_error;
@@ -186,8 +227,8 @@ _eota_reponses_t EOTAUpdate::PerformOTA(String &binURL, String &binMD5)
     const auto payloadSize = httpClient.getSize();
     auto & payloadStream = httpClient.getStream();
 
-    if (binMD5.length() > 0 &&
-        !Update.setMD5(binMD5.c_str()))
+    if (_binMD5.length() > 0 &&
+        !Update.setMD5(_binMD5.c_str()))
     {
             log_e("Failed to set the expected MD5");
             return eota_no_match;
@@ -233,4 +274,34 @@ _eota_reponses_t EOTAUpdate::PerformOTA(String &binURL, String &binMD5)
     log_i("Update completed. Rebooting");
     ESP.restart();
     return eota_ok;
+}
+
+bool EOTAUpdate::parseSemVer(String _semVer, uint8_t (*_numArray)[4])
+{
+  _semVer.toLowerCase();
+  uint8_t dot = 0;
+  uint8_t last_index = 0;
+  for (uint8_t i = 0; i < 3; i++)
+  {
+    dot = _semVer.indexOf('.', last_index);
+    String tmp = _semVer.substring(last_index, dot);
+    last_index = dot+1;
+    (*_numArray)[i] = tmp.toInt();
+  }
+  (*_numArray)[3] = _semVer.charAt(_semVer.length()-1);
+  if (!isalpha((*_numArray)[3]))
+    (*_numArray)[3] = 0;
+  String _comp;
+  for (uint8_t j = 0; j < 3; j++)
+  {
+    String tmp = String((*_numArray)[j]);
+    _comp.concat(tmp);
+    _comp.concat('.');
+  }
+  _comp.setCharAt(_comp.length() - 1, (*_numArray)[3]);
+  if (_comp.compareTo(_semVer) != 0)
+    return false;
+  log_i("parsed semantic version: %u.%u.%u%c, received semantic version: %s\r\n",
+                                (*_numArray)[0], (*_numArray)[1], (*_numArray)[2], (*_numArray)[3], _semVer);
+  return true;
 }

@@ -7,6 +7,10 @@
     {
       "name": "Francesco Capano",
       "email": "fcapano@gmail.com"
+    },
+    {
+      "name": "Uri Shani",
+      "email": "uri.hanagar@gmail.com"
     }
   ],
   "repository":
@@ -14,7 +18,7 @@
     "type": "git",
     "url": "https://github.com/fcapano/EOTAUpdate.git"
   },
-  "version": "1.1.0",
+  "version": "2.0.0",
   "frameworks": "arduino",
   "platforms": ["espressif8266", "espressif32"]
 }
