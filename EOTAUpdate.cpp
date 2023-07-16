@@ -4,7 +4,6 @@
 #include <Update.h>
 #include <WiFi.h>
 #include <WiFiClient.h>
-#include <regex>
 
 #include <EOTAUpdate.h>
 
