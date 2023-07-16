@@ -43,6 +43,7 @@ typedef enum {
     eota_runaway,
     eota_size_error
 } eota_reponses_t;
+} eota_reponses_t;
 
 class EOTAUpdate
 {
@@ -101,6 +102,8 @@ private:
     uint8_t _currentVersionArr[4] = {0};
     const unsigned long _updateIntervalMs;
     unsigned long _lastUpdateMs;
+    String _binURL;
+    String _binMD5;
     String _binURL;
     String _binMD5;
 };

@@ -4,6 +4,7 @@
 #include <Update.h>
 #include <WiFi.h>
 #include <WiFiClient.h>
+#include <regex>
 
 #include <EOTAUpdate.h>
 
@@ -15,6 +16,9 @@ EOTAUpdate::EOTAUpdate(
     _url(url),
     _forceSSL(url.startsWith("https://")),
     _currentVersion(currentVersion),
+    _versionMinor(0),
+    _versionPatch(0),
+    _versionMark('a'),
     _updateIntervalMs(updateIntervalMs),
     _lastUpdateMs(0)
 {
