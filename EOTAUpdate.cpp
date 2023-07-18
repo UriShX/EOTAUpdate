@@ -7,6 +7,7 @@
 
 #include <EOTAUpdate.h>
 
+#ifndef EOTA_SEMANTIC_VERSIONING
 EOTAUpdate::EOTAUpdate(
     const String &url,
     const unsigned currentVersion,
@@ -15,14 +16,11 @@ EOTAUpdate::EOTAUpdate(
     _url(url),
     _forceSSL(url.startsWith("https://")),
     _currentVersion(currentVersion),
-    _versionMinor(0),
-    _versionPatch(0),
-    _versionMark('a'),
     _updateIntervalMs(updateIntervalMs),
     _lastUpdateMs(0)
 {
 }
-
+#else
 EOTAUpdate::EOTAUpdate(
     const String &url,
     const String &currentVersionStr,
@@ -30,22 +28,21 @@ EOTAUpdate::EOTAUpdate(
     :
     _url(url),
     _forceSSL(url.startsWith("https://")),
-    _currentVersion(0),
     _versionStr(currentVersionStr),
     _updateIntervalMs(updateIntervalMs),
     _lastUpdateMs(0)
 {
     parseSemVer(currentVersionStr, &_currentVersionArr);
 }
-
+#endif
 
 void EOTAUpdate::print_versions()
 {
-    if (_currentVersionArr[0] != 0 && _currentVersionArr[1] != 0 && _currentVersionArr[2] != 0 && _currentVersionArr[3] != 0)
-        Serial.printf("version passed to OTA lib: %u\r\n", _currentVersion);
-    else
-        Serial.printf("version passed to OTA lib - parsed: %u.%u.%u%c, string recieved: %s\r\n", _currentVersionArr[0], _currentVersionArr[1], _currentVersionArr[2], _currentVersionArr[3], _versionStr);
-
+#ifndef EOTA_SEMANTIC_VERSIONING
+    Serial.printf("version passed to OTA lib: %u\r\n", _currentVersion);
+#else
+    Serial.printf("version passed to OTA lib - parsed: %u.%u.%u%c, string recieved: %s\r\n", _currentVersionArr[0], _currentVersionArr[1], _currentVersionArr[2], _currentVersionArr[3], _versionStr);
+#endif
 }
 
 eota_reponses_t EOTAUpdate::Check(bool force)
@@ -140,10 +137,11 @@ eota_reponses_t EOTAUpdate::GetUpdateFWURL(String &_binURL, String &_binMD5, con
     auto & payloadStream = httpClient.getStream();
     _binURL = payloadStream.readStringUntil('\n');
     const String newVersionNumber = payloadStream.readStringUntil('\n');
-    if (_currentVersionArr[0] == 0 && _currentVersionArr[1] == 0 && _currentVersionArr[2] == 0 && _currentVersionArr[3] == 0)
-        _newVersionNumber = newVersionNumber.toInt();
-    else
-        parseSemVer(newVersionNumber, &newVersionArr);
+#ifndef EOTA_SEMANTIC_VERSIONING
+    _newVersionNumber = newVersionNumber.toInt();
+#else
+    parseSemVer(newVersionNumber, &newVersionArr);
+#endif
     _binMD5 = payloadStream.readStringUntil('\n');
     const String newVersionString = payloadStream.readStringUntil('\n');
     httpClient.end();
@@ -167,19 +165,20 @@ eota_reponses_t EOTAUpdate::GetUpdateFWURL(String &_binURL, String &_binMD5, con
     }
 
     bool updateAvailable = false;
-    if (_currentVersionArr[0] != 0 && _currentVersionArr[1] != 0 && _currentVersionArr[2] != 0 && _currentVersionArr[3] != 0)
-        updateAvailable = (_newVersionNumber > _currentVersion) ? true : false;
-    else
-        for (uint8_t i = 0; i < sizeof(_currentVersionArr); i++)
-            updateAvailable = (newVersionArr[i] > _currentVersionArr[i]) ? true : false; 
-        
+#ifndef EOTA_SEMANTIC_VERSIONING
+    updateAvailable = (_newVersionNumber > _currentVersion) ? true : false;
+#else
+    for (uint8_t i = 0; i < sizeof(_currentVersionArr); i++)
+        updateAvailable = (newVersionArr[i] > _currentVersionArr[i]) ? true : false; 
+#endif        
     log_d("Fetched update information:");
     log_d("File url:           %s",       _binURL.c_str());
     log_d("File MD5:           %s",       _binMD5.c_str());
-    if (_currentVersionArr[0] != 0 && _currentVersionArr[1] != 0 && _currentVersionArr[2] != 0 && _currentVersionArr[3] != 0)
-        log_d("Current version:    %u",       _currentVersion);
-    else
-        log_d("Current version: %s", _versionStr);
+#ifndef EOTA_SEMANTIC_VERSIONING
+    log_d("Current version:    %u",       _currentVersion);
+#else
+    log_d("Current version: %s", _versionStr);
+#endif
     log_d("Update available:   %s",       (updateAvailable) ? "YES" : "NO");
     log_d("Published version:  [%u] %s",  newVersionNumber, newVersionString.c_str());
 
@@ -279,6 +278,7 @@ eota_reponses_t EOTAUpdate::PerformOTA(String &_binURL, String &_binMD5)
     return eota_ok;
 }
 
+#ifdef EOTA_SEMANTIC_VERSIONING
 bool EOTAUpdate::parseSemVer(String _semVer, uint8_t (*_numArray)[4])
 {
   _semVer.toLowerCase();
@@ -308,3 +308,4 @@ bool EOTAUpdate::parseSemVer(String _semVer, uint8_t (*_numArray)[4])
                                 (*_numArray)[0], (*_numArray)[1], (*_numArray)[2], (*_numArray)[3], _semVer);
   return true;
 }
+#endif

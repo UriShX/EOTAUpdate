@@ -43,7 +43,6 @@ typedef enum {
     eota_runaway,
     eota_size_error
 } eota_reponses_t;
-} eota_reponses_t;
 
 class EOTAUpdate
 {
@@ -51,6 +50,7 @@ private:
     static const unsigned long UPDATE_INTERVAL_MS    = 60 * 60 * 1000;  // 1 hour
 
 public:
+#ifndef EOTA_SEMANTIC_VERSIONING
     /**
      * @brief Create an EOTAUpdate instance
      * @param url                   URL pointing to the OTA configuration text file
@@ -61,7 +61,7 @@ public:
         const String &url,
         const unsigned currentVersion,
         const unsigned long updateIntervalMs    = UPDATE_INTERVAL_MS);
-
+#else
     /**
      * @brief Create an EOTAUpdate instance
      * @param url                   URL pointing to the OTA configuration text file
@@ -72,7 +72,7 @@ public:
         const String &url,
         const String &currentVersionStr,
         const unsigned long updateIntervalMs    = UPDATE_INTERVAL_MS);
-
+#endif
     /**
      * @brief Check for an update and, if available, fetch it and flash it.
      *
@@ -92,18 +92,21 @@ private:
     eota_reponses_t GetUpdateFWURL(String &_binURL, String &_binMD5);
     eota_reponses_t GetUpdateFWURL(String &_binURL, String &_binMD5, const String &url, const uint16_t retries = 5);
     eota_reponses_t PerformOTA(String &_binURL, String &_binMD5);
+#ifdef EOTA_SEMANTIC_VERSIONING
     bool parseSemVer(String _semVer, uint8_t (*_numArray)[4]);
+#endif
 
 private:
     String _url;
     const bool _forceSSL;
+#ifndef EOTA_SEMANTIC_VERSIONING
     const unsigned _currentVersion;
+#else
     const String _versionStr;
     uint8_t _currentVersionArr[4] = {0};
+#endif
     const unsigned long _updateIntervalMs;
     unsigned long _lastUpdateMs;
-    String _binURL;
-    String _binMD5;
     String _binURL;
     String _binMD5;
 };
